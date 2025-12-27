@@ -1,26 +1,31 @@
 // app/add-expense.tsx
-// UPDATED: Added payment method picker
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, Button, Text, Alert, Pressable } from 'react-native';
+import { View, StyleSheet, TextInput, Button, Text, Alert, Pressable, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useExpenses } from '../hooks/useExpenses';
-import { useSelectedDate } from '../context/SelectedDateContext';
 
-const PAYMENT_METHODS = ['Cash', 'Debit Card', 'Credit Card', 'UPI'];
+const STATIC_CATEGORIES = ['Health', 'Groceries', 'Travel', 'Shopping', 'Food', 'Entertainment', 'Other'];
 
 export default function AddExpenseScreen() {
   const router = useRouter();
-  const { addExpense } = useExpenses();
-  const { selectedDate } = useSelectedDate();
-
+  const { addExpense, loading } = useExpenses();
+  
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState<Date>(new Date(selectedDate));
-  const [category, setCategory] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string | null>('Cash');
+  const [date, setDate] = useState(new Date());
+  const [category, setCategory] = useState(STATIC_CATEGORIES[0]);
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+
+  const showDatePicker = () => setDatePickerVisible(true);
+  const hideDatePicker = () => setDatePickerVisible(false);
+
+  const handleConfirmDate = (picked: Date) => {
+    setDate(picked);
+    hideDatePicker();
+  };
 
   const onSave = async () => {
     if (!title.trim() || !amount.trim()) {
@@ -39,27 +44,33 @@ export default function AddExpenseScreen() {
         title: title.trim(),
         amount: numericAmount,
         date: date.toISOString().split('T')[0],
-        category: category || null,
-        paymentMethod: paymentMethod || null,
+        category,
+        paymentMethod,
       });
       router.back();
-    } catch {
-      Alert.alert('Error', 'Failed to save expense.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add expense.');
     }
   };
 
-  const showDatePicker = () => setDatePickerVisible(true);
-  const hideDatePicker = () => setDatePickerVisible(false);
-  const handleConfirmDate = (picked: Date) => {
-    setDate(picked);
-    hideDatePicker();
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Title *</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Groceries" />
-
+      <TextInput
+        style={styles.input}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Groceries"
+      />
+      
       <Text style={styles.label}>Amount *</Text>
       <TextInput
         style={styles.input}
@@ -68,11 +79,41 @@ export default function AddExpenseScreen() {
         keyboardType="decimal-pad"
         placeholder="1000"
       />
-
+      
       <Text style={styles.label}>Date</Text>
-      <Pressable onPress={showDatePicker} style={styles.dateButton}>
+      <Pressable style={styles.dateButton} onPress={showDatePicker}>
         <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
       </Pressable>
+      
+      <Text style={styles.label}>Category</Text>
+      <View style={styles.pickerWrapper}>
+        <Picker
+          selectedValue={category}
+          onValueChange={setCategory}
+          style={styles.picker}
+        >
+          {STATIC_CATEGORIES.map(cat => (
+            <Picker.Item key={cat} label={cat} value={cat} />
+          ))}
+        </Picker>
+      </View>
+      
+      <Text style={styles.label}>Payment Method</Text>
+      <View style={styles.pickerWrapper}>
+        <Picker
+          selectedValue={paymentMethod}
+          onValueChange={setPaymentMethod}
+          style={styles.picker}
+        >
+          <Picker.Item label="Cash" value="Cash" />
+          <Picker.Item label="Debit Card" value="Debit Card" />
+          <Picker.Item label="Credit Card" value="Credit Card" />
+          <Picker.Item label="UPI" value="UPI" />
+        </Picker>
+      </View>
+      
+      <Button title="Add Expense" onPress={onSave} />
+      
       <DateTimePickerModal
         isVisible={isDatePickerVisible}
         mode="date"
@@ -81,34 +122,12 @@ export default function AddExpenseScreen() {
         onCancel={hideDatePicker}
         maximumDate={new Date()}
       />
-
-      <Text style={styles.label}>Category (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={category ?? ''}
-        onChangeText={(text) => setCategory(text.trim() || null)}
-        placeholder="Food, Rent, etc."
-      />
-
-      <Text style={styles.label}>Payment Method</Text>
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={paymentMethod}
-          onValueChange={(itemValue) => setPaymentMethod(itemValue)}
-        >
-          <Picker.Item label="Cash" value="Cash" />
-          <Picker.Item label="Debit Card" value="Debit Card" />
-          <Picker.Item label="Credit Card" value="Credit Card" />
-          <Picker.Item label="UPI" value="UPI" />
-        </Picker>
-      </View>
-
-      <Button title="Save" onPress={onSave} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1, padding: 16 },
   label: { marginTop: 12, marginBottom: 4, fontWeight: '500' },
   input: {
@@ -132,5 +151,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 6,
     overflow: 'hidden',
+    marginBottom: 16,
   },
+  picker: { height: 44 },
 });

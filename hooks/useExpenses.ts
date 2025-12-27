@@ -1,13 +1,12 @@
 // src/hooks/useExpenses.ts
-// FIXED: Initialize DB before ANY queries
 import { useCallback, useEffect, useState } from 'react';
 import { Expense, NewExpenseInput, UpdateExpenseInput } from '../models/Expense';
 import {
   deleteExpense,
   getExpensesByDate,
-  getExpenseById,
-  insertExpense,
-  updateExpense,
+  getExpenseById as dbGetExpenseById,
+  insertExpense as dbInsertExpense,
+  updateExpense as dbUpdateExpense,
 } from '../database/expenseQueries';
 import { initializeDatabase } from '../database/db';
 import { useSelectedDate } from '../context/SelectedDateContext';
@@ -17,14 +16,23 @@ export function useExpenses() {
   const [loading, setLoading] = useState<boolean>(false);
   const { selectedDate } = useSelectedDate();
 
-  // In useExpenses.ts
+  // Initialize database and load expenses on mount
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await initializeDatabase();
+        await loadExpenses();
+      } catch (error) {
+        console.error('Error initializing database:', error);
+      }
+    };
+    void init();
+  }, []);
+
   const loadExpenses = useCallback(async () => {
     setLoading(true);
     try {
-      console.log('Loading expenses...');
-      await initializeDatabase(); // Make sure this is called first
       const data = await getExpensesByDate(selectedDate);
-      console.log('Expenses loaded:', data);
       setExpenses(data);
     } catch (error) {
       console.error('Error loading expenses:', error);
@@ -33,46 +41,47 @@ export function useExpenses() {
     }
   }, [selectedDate]);
 
-  useEffect(() => {
-    void loadExpenses();
-  }, [loadExpenses]);
-
   const refreshExpenses = useCallback(async () => {
     await loadExpenses();
   }, [loadExpenses]);
 
   const addExpense = useCallback(async (input: NewExpenseInput) => {
     try {
-      console.log('Adding expense:', input);
-      await insertExpense(input);
-      await refreshExpenses();
+      await dbInsertExpense(input);
+      await loadExpenses();
     } catch (error) {
       console.error('Error adding expense:', error);
       throw error;
     }
-  }, [refreshExpenses]);
+  }, [loadExpenses]);
 
-  const updateExpense = useCallback(
-    async (input: UpdateExpenseInput) => {
-      await initializeDatabase();
-      await updateExpense(input);
-      await refreshExpenses();
-    },
-    [refreshExpenses]
-  );
+  const updateExpense = useCallback(async (input: UpdateExpenseInput) => {
+    try {
+      await dbUpdateExpense(input);
+      await loadExpenses();
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      throw error;
+    }
+  }, [loadExpenses]);
 
-  const deleteExpenseById = useCallback(
-    async (id: number) => {
-      await initializeDatabase();
+  const deleteExpenseById = useCallback(async (id: number) => {
+    try {
       await deleteExpense(id);
       await refreshExpenses();
-    },
-    [refreshExpenses]
-  );
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      throw error;
+    }
+  }, [refreshExpenses]);
 
-  const getExpenseByIdHook = useCallback(async (id: number) => {
-    await initializeDatabase();
-    return await getExpenseById(id);
+  const getExpenseById = useCallback(async (id: number) => {
+    try {
+      return await dbGetExpenseById(id);
+    } catch (error) {
+      console.error('Error getting expense by id:', error);
+      throw error;
+    }
   }, []);
 
   return {
@@ -82,6 +91,6 @@ export function useExpenses() {
     addExpense,
     updateExpense,
     deleteExpense: deleteExpenseById,
-    getExpenseById: getExpenseByIdHook,
+    getExpenseById,
   };
 }

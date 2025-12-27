@@ -1,14 +1,4 @@
 // src/models/Expense.ts
-export type BuiltInCategory =
-  | 'Food'
-  | 'Rent'
-  | 'Bills'
-  | 'Transport'
-  | 'Entertainment'
-  | 'Shopping'
-  | 'Health'
-  | 'Other';
-
 export interface Expense {
   id: number;
   title: string;
@@ -26,7 +16,7 @@ export interface NewExpenseInput {
   paymentMethod: string | null;
 }
 
-export interface UpdateExpenseInput extends Expense { }
+export interface UpdateExpenseInput extends Expense {}
 
 export interface Category {
   id: number;
