@@ -1,24 +1,16 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+// app/_layout.tsx
+// FIXED: Proper root stack + SelectedDateProvider placement
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { SelectedDateProvider } from '../context/SelectedDateContext';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <SelectedDateProvider>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="add-expense" options={{ title: 'Add Expense' }} />
+        <Stack.Screen name="edit-expense" options={{ title: 'Edit Expense' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    </SelectedDateProvider>
   );
 }
