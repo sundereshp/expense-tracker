@@ -5,17 +5,18 @@ import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useExpenses } from '../hooks/useExpenses';
-
-const STATIC_CATEGORIES = ['Health', 'Groceries', 'Travel', 'Shopping', 'Food', 'Entertainment', 'Other'];
+import { CategoryPicker } from '../components/CategoryPicker';
+import { useCategories } from '../hooks/useCategories';
 
 export default function AddExpenseScreen() {
   const router = useRouter();
-  const { addExpense, loading } = useExpenses();
+  const { addExpense, loading: isSaving } = useExpenses();
+  const { categories, addCustomCategory, loading: isLoadingCategories } = useCategories();
   
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date());
-  const [category, setCategory] = useState(STATIC_CATEGORIES[0]);
+  const [category, setCategory] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
@@ -33,13 +34,13 @@ export default function AddExpenseScreen() {
       return;
     }
 
-    const numericAmount = Number(amount);
-    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Validation', 'Amount must be a positive number.');
-      return;
-    }
-
     try {
+      const numericAmount = parseFloat(amount);
+      if (isNaN(numericAmount)) {
+        Alert.alert('Validation', 'Please enter a valid amount');
+        return;
+      }
+
       await addExpense({
         title: title.trim(),
         amount: numericAmount,
@@ -49,11 +50,24 @@ export default function AddExpenseScreen() {
       });
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to add expense.');
+      console.error('Error adding expense:', error);
+      Alert.alert('Error', 'Failed to add expense. Please try again.');
     }
   };
 
-  if (loading) {
+  const handleAddCustomCategory = async (name: string): Promise<void> => {
+    try {
+      await addCustomCategory(name);
+      setCategory(name);
+      // Remove the return statement since we're not using the returned value
+    } catch (error) {
+      console.error('Error adding custom category:', error);
+      Alert.alert('Error', 'Failed to add custom category. Please try again.');
+      throw error; // Re-throw to let the CategoryPicker handle the error
+    }
+  };
+
+  if (isLoadingCategories) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
@@ -85,18 +99,12 @@ export default function AddExpenseScreen() {
         <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
       </Pressable>
       
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={category}
-          onValueChange={setCategory}
-          style={styles.picker}
-        >
-          {STATIC_CATEGORIES.map(cat => (
-            <Picker.Item key={cat} label={cat} value={cat} />
-          ))}
-        </Picker>
-      </View>
+      <CategoryPicker
+        categories={categories.map(cat => cat.name)}
+        selectedCategory={category}
+        onCategoryChange={setCategory}
+        onAddCustomCategory={handleAddCustomCategory}
+      />
       
       <Text style={styles.label}>Payment Method</Text>
       <View style={styles.pickerWrapper}>
@@ -112,12 +120,15 @@ export default function AddExpenseScreen() {
         </Picker>
       </View>
       
-      <Button title="Add Expense" onPress={onSave} />
+      <Button 
+        title={isSaving ? 'Saving...' : 'Add Expense'} 
+        onPress={onSave} 
+        disabled={isSaving}
+      />
       
       <DateTimePickerModal
         isVisible={isDatePickerVisible}
         mode="date"
-        date={date}
         onConfirm={handleConfirmDate}
         onCancel={hideDatePicker}
         maximumDate={new Date()}
@@ -127,25 +138,38 @@ export default function AddExpenseScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, padding: 16 },
-  label: { marginTop: 12, marginBottom: 4, fontWeight: '500' },
+  loadingContainer: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  container: { 
+    flex: 1, 
+    padding: 16 
+  },
+  label: { 
+    marginTop: 12, 
+    marginBottom: 4, 
+    fontWeight: '500' 
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    padding: 10,
+    marginBottom: 12,
+    fontSize: 16,
   },
   dateButton: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    justifyContent: 'center',
+    padding: 12,
+    marginBottom: 12,
   },
-  dateButtonText: { fontSize: 14, color: '#333' },
+  dateButtonText: {
+    fontSize: 16,
+  },
   pickerWrapper: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -153,5 +177,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
   },
-  picker: { height: 44 },
+  picker: { 
+    height: 44 
+  },
 });

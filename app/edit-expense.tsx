@@ -1,19 +1,20 @@
 // app/edit-expense.tsx
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, TextInput, Button, Text, Alert, ActivityIndicator, Pressable } from 'react-native';
+import { View, StyleSheet, TextInput, Button, Text, Alert, Pressable, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useExpenses } from '../hooks/useExpenses';
 import { Expense } from '../models/Expense';
-
-const STATIC_CATEGORIES = ['Health', 'Groceries', 'Travel', 'Shopping', 'Food', 'Entertainment', 'Other'];
+import { CategoryPicker } from '../components/CategoryPicker';
+import { useCategories } from '../hooks/useCategories';
 
 export default function EditExpenseScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getExpenseById, updateExpense, loading } = useExpenses();
-
+  const { updateExpense, getExpenseById } = useExpenses();
+  const { categories, addCustomCategory, loading: isLoadingCategories } = useCategories();
+  
   const [expense, setExpense] = useState<Expense | null>(null);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -21,24 +22,35 @@ export default function EditExpenseScreen() {
   const [category, setCategory] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
+    const loadExpense = async () => {
       if (!id) return;
-      const found = await getExpenseById(Number(id));
-      if (!found) {
-        Alert.alert('Error', 'Expense not found');
+      
+      try {
+        const expenseId = typeof id === 'string' ? parseInt(id, 10) : id;
+        if (isNaN(expenseId)) {
+          throw new Error('Invalid expense ID');
+        }
+        
+        const loadedExpense = await getExpenseById(expenseId);
+        if (loadedExpense) {
+          setExpense(loadedExpense);
+          setTitle(loadedExpense.title);
+          setAmount(loadedExpense.amount.toString());
+          setDate(new Date(loadedExpense.date));
+          setCategory(loadedExpense.category);
+          setPaymentMethod(loadedExpense.paymentMethod || 'Cash');
+        }
+      } catch (error) {
+        console.error('Error loading expense:', error);
+        Alert.alert('Error', 'Failed to load expense');
         router.back();
-        return;
       }
-      setExpense(found);
-      setTitle(found.title);
-      setAmount(found.amount.toString());
-      setDate(new Date(found.date));
-      setCategory(found.category);
-      setPaymentMethod(found.paymentMethod || 'Cash');
     };
-    void load();
+
+    void loadExpense();
   }, [id, getExpenseById, router]);
 
   const showDatePicker = () => setDatePickerVisible(true);
@@ -56,15 +68,16 @@ export default function EditExpenseScreen() {
       return;
     }
 
-    const numericAmount = Number(amount);
-    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Validation', 'Amount must be a positive number.');
-      return;
-    }
-
     try {
+      setIsSaving(true);
+      const numericAmount = parseFloat(amount);
+      if (isNaN(numericAmount)) {
+        Alert.alert('Validation', 'Please enter a valid amount');
+        return;
+      }
+
       await updateExpense({
-        ...expense,
+        id: expense.id,
         title: title.trim(),
         amount: numericAmount,
         date: date.toISOString().split('T')[0],
@@ -72,12 +85,27 @@ export default function EditExpenseScreen() {
         paymentMethod,
       });
       router.back();
-    } catch {
-      Alert.alert('Error', 'Failed to update expense.');
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      Alert.alert('Error', 'Failed to update expense. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  if (!expense || loading) {
+  const handleAddCustomCategory = async (name: string): Promise<void> => {
+    try {
+      await addCustomCategory(name);
+      setCategory(name);
+      // Remove the return statement since we're not using the returned value
+    } catch (error) {
+      console.error('Error adding custom category:', error);
+      Alert.alert('Error', 'Failed to add custom category. Please try again.');
+      throw error; // Re-throw to let the CategoryPicker handle the error
+    }
+  };
+
+  if (!expense || isLoadingCategories) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
@@ -88,7 +116,12 @@ export default function EditExpenseScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Title *</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Groceries" />
+      <TextInput
+        style={styles.input}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Groceries"
+      />
       
       <Text style={styles.label}>Amount *</Text>
       <TextInput
@@ -104,18 +137,20 @@ export default function EditExpenseScreen() {
         <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
       </Pressable>
       
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.pickerWrapper}>
-        <Picker selectedValue={category || STATIC_CATEGORIES[0]} onValueChange={setCategory} style={styles.picker}>
-          {STATIC_CATEGORIES.map(cat => (
-            <Picker.Item key={cat} label={cat} value={cat} />
-          ))}
-        </Picker>
-      </View>
+      <CategoryPicker
+        categories={categories.map(cat => cat.name)}
+        selectedCategory={category}
+        onCategoryChange={setCategory}
+        onAddCustomCategory={handleAddCustomCategory}
+      />
       
       <Text style={styles.label}>Payment Method</Text>
       <View style={styles.pickerWrapper}>
-        <Picker selectedValue={paymentMethod} onValueChange={setPaymentMethod} style={styles.picker}>
+        <Picker
+          selectedValue={paymentMethod}
+          onValueChange={setPaymentMethod}
+          style={styles.picker}
+        >
           <Picker.Item label="Cash" value="Cash" />
           <Picker.Item label="Debit Card" value="Debit Card" />
           <Picker.Item label="Credit Card" value="Credit Card" />
@@ -123,7 +158,11 @@ export default function EditExpenseScreen() {
         </Picker>
       </View>
       
-      <Button title="Save Changes" onPress={onSave} />
+      <Button 
+        title={isSaving ? 'Saving...' : 'Save Changes'} 
+        onPress={onSave} 
+        disabled={isSaving}
+      />
       
       <DateTimePickerModal
         isVisible={isDatePickerVisible}
@@ -138,25 +177,38 @@ export default function EditExpenseScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, padding: 16 },
-  label: { marginTop: 12, marginBottom: 4, fontWeight: '500' },
+  loadingContainer: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  container: { 
+    flex: 1, 
+    padding: 16 
+  },
+  label: { 
+    marginTop: 12, 
+    marginBottom: 4, 
+    fontWeight: '500' 
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    padding: 10,
+    marginBottom: 12,
+    fontSize: 16,
   },
   dateButton: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    justifyContent: 'center',
+    padding: 12,
+    marginBottom: 12,
   },
-  dateButtonText: { fontSize: 14, color: '#333' },
+  dateButtonText: {
+    fontSize: 16,
+  },
   pickerWrapper: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -164,5 +216,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
   },
-  picker: { height: 44 },
+  picker: { 
+    height: 44 
+  },
 });
