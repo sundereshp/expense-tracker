@@ -1,10 +1,14 @@
 // app/edit-expense.tsx
+// UPDATED: Added payment method picker
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TextInput, Button, Text, Alert, ActivityIndicator, Pressable } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useExpenses } from '../hooks/useExpenses';
 import { Expense } from '../models/Expense';
+
+const PAYMENT_METHODS = ['Cash', 'Debit Card', 'Credit Card', 'UPI'];
 
 export default function EditExpenseScreen() {
   const router = useRouter();
@@ -16,6 +20,7 @@ export default function EditExpenseScreen() {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [category, setCategory] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>('Cash');
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
   useEffect(() => {
@@ -32,6 +37,7 @@ export default function EditExpenseScreen() {
       setAmount(found.amount.toString());
       setDate(new Date(found.date));
       setCategory(found.category);
+      setPaymentMethod(found.paymentMethod || 'Cash');
     };
     void load();
   }, [id, getExpenseById, router]);
@@ -56,7 +62,8 @@ export default function EditExpenseScreen() {
         title: title.trim(),
         amount: numericAmount,
         date: date.toISOString().split('T')[0],
-        category,
+        category: category || null,
+        paymentMethod: paymentMethod || null,
       });
       router.back();
     } catch {
@@ -114,6 +121,19 @@ export default function EditExpenseScreen() {
         placeholder="Food, Rent, etc."
       />
 
+      <Text style={styles.label}>Payment Method</Text>
+      <View style={styles.pickerWrapper}>
+        <Picker
+          selectedValue={paymentMethod}
+          onValueChange={(itemValue) => setPaymentMethod(itemValue)}
+        >
+          <Picker.Item label="Cash" value="Cash" />
+          <Picker.Item label="Debit Card" value="Debit Card" />
+          <Picker.Item label="Credit Card" value="Credit Card" />
+          <Picker.Item label="UPI" value="UPI" />
+        </Picker>
+      </View>
+
       <Button title="Save Changes" onPress={onSave} />
     </View>
   );
@@ -139,4 +159,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dateButtonText: { fontSize: 14, color: '#333' },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
 });

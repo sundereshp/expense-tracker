@@ -15,6 +15,7 @@ export interface Expense {
   amount: number;
   date: string;
   category: string | null;
+  paymentMethod: string | null;
 }
 
 export interface NewExpenseInput {
@@ -22,9 +23,10 @@ export interface NewExpenseInput {
   amount: number;
   date: string;
   category: string | null;
+  paymentMethod: string | null;
 }
 
-export interface UpdateExpenseInput extends Expense {}
+export interface UpdateExpenseInput extends Expense { }
 
 export interface Category {
   id: number;

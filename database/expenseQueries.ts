@@ -1,10 +1,10 @@
 // src/database/expenseQueries.ts
 import { db } from './db';
-import { Expense, NewExpenseInput, UpdateExpenseInput } from '../models/Expense';
-import { Category } from '../models/Expense';
+import { Category, Expense, NewExpenseInput, UpdateExpenseInput } from '../models/Expense';
+
 export async function getExpensesByDate(date: string): Promise<Expense[]> {
   const rows = await db.getAllAsync<Expense>(
-    'SELECT id, title, amount, date, category FROM expenses WHERE date = ? ORDER BY id DESC',
+    'SELECT id, title, amount, date, category, paymentMethod FROM expenses WHERE date = ? ORDER BY id DESC',
     [date]
   );
   return rows;
@@ -12,14 +12,14 @@ export async function getExpensesByDate(date: string): Promise<Expense[]> {
 
 export async function getAllExpenses(): Promise<Expense[]> {
   const rows = await db.getAllAsync<Expense>(
-    'SELECT id, title, amount, date, category FROM expenses ORDER BY date DESC, id DESC'
+    'SELECT id, title, amount, date, category, paymentMethod FROM expenses ORDER BY date DESC, id DESC'
   );
   return rows;
 }
 
 export async function getExpenseById(id: number): Promise<Expense | null> {
   const rows = await db.getAllAsync<Expense>(
-    'SELECT id, title, amount, date, category FROM expenses WHERE id = ? LIMIT 1',
+    'SELECT id, title, amount, date, category, paymentMethod FROM expenses WHERE id = ? LIMIT 1',
     [id]
   );
   return rows.length === 0 ? null : rows[0];
@@ -27,15 +27,15 @@ export async function getExpenseById(id: number): Promise<Expense | null> {
 
 export async function insertExpense(input: NewExpenseInput): Promise<void> {
   await db.runAsync(
-    'INSERT INTO expenses (title, amount, date, category) VALUES (?, ?, ?, ?)',
-    [input.title, input.amount, input.date, input.category]
+    'INSERT INTO expenses (title, amount, date, category, paymentMethod) VALUES (?, ?, ?, ?, ?)',
+    [input.title, input.amount, input.date, input.category, input.paymentMethod]
   );
 }
 
 export async function updateExpense(input: UpdateExpenseInput): Promise<void> {
   await db.runAsync(
-    'UPDATE expenses SET title = ?, amount = ?, date = ?, category = ? WHERE id = ?',
-    [input.title, input.amount, input.date, input.category, input.id]
+    'UPDATE expenses SET title = ?, amount = ?, date = ?, category = ?, paymentMethod = ? WHERE id = ?',
+    [input.title, input.amount, input.date, input.category, input.paymentMethod, input.id]
   );
 }
 

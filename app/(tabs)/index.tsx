@@ -6,31 +6,36 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useExpenses } from '../../hooks/useExpenses';
 import { useSelectedDate } from '../../context/SelectedDateContext';
 import { ExpenseItem } from '../../components/ExpenseItem';
+import { initializeDatabase } from '../../database/db';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { expenses, loading, refreshExpenses, deleteExpense } = useExpenses();
   const { selectedDate } = useSelectedDate();
 
+  // In useFocusEffect, ensure DB is ready:
   useFocusEffect(
     useCallback(() => {
-      void refreshExpenses();
+      // Initialize DB first
+      initializeDatabase().then(() => {
+        void refreshExpenses();
+      });
     }, [refreshExpenses])
   );
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
-  const headerTitle = isToday 
-    ? 'Today' 
+  const headerTitle = isToday
+    ? 'Today'
     : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
 
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>{headerTitle}</Text>
-      
+
       <FlatList
         data={expenses}
         keyExtractor={(item) => item.id.toString()}
@@ -51,10 +56,10 @@ export default function HomeScreen() {
         }
         contentContainerStyle={styles.listContainer}
       />
-      
+
       {/* FAB - Add New Expense */}
-      <Pressable 
-        style={styles.fab} 
+      <Pressable
+        style={styles.fab}
         onPress={() => router.push('/add-expense')}
       >
         <Text style={styles.fabText}>+</Text>
@@ -64,8 +69,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     padding: 16,
     position: 'relative',
   },

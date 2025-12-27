@@ -1,4 +1,5 @@
 // src/components/ExpenseItem.tsx
+// UPDATED: Display payment method
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { GestureHandlerRootView, RectButton, Swipeable } from 'react-native-gesture-handler';
@@ -25,8 +26,9 @@ export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onPress, onDe
             <Text style={styles.title}>{expense.title}</Text>
             <Text style={styles.amount}>₹{expense.amount.toFixed(2)}</Text>
           </View>
-          <View style={styles.row}>
+          <View style={styles.metaRow}>
             <Text style={styles.category}>{expense.category ?? 'Uncategorized'}</Text>
+            <Text style={styles.paymentMethod}>{expense.paymentMethod ?? 'Cash'}</Text>
           </View>
         </Pressable>
       </Swipeable>
@@ -47,6 +49,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
   title: {
     fontSize: 16,
     fontWeight: '500',
@@ -57,9 +64,13 @@ const styles = StyleSheet.create({
     color: '#007AFF',
   },
   category: {
-    marginTop: 4,
     fontSize: 14,
     color: '#666',
+  },
+  paymentMethod: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
   },
   deleteButton: {
     backgroundColor: '#FF3B30',
